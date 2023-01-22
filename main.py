@@ -1,7 +1,9 @@
+import time
+
 import cv2
 import numpy as np
 import const
-from numba import njit
+# from numba import njit
 
 
 def keyboard(cap):
@@ -29,24 +31,22 @@ def detectColor(hsv_frame):
     mask_purple = cv2.inRange(hsv_frame, const.lower_purple, const.upper_purple)
     mask_yellow = cv2.inRange(hsv_frame, const.lower_yellow, const.upper_yellow)
     sums = [np.sum(mask_green), np.sum(mask_purple), np.sum(mask_yellow)]
-    return matchColor(sums)
+    ix = np.argmax(sums)
+    if sums[ix] > 0:
+        return matchColor(ix)
+    else:
+        return 'unknown'
 
 
-@njit
-def matchColor(counts):
-    ix = np.argmax(counts) if len(counts) > 0 else -1
-    if counts[ix] > 0:
-        match ix:
-            case 0:
-                return 'green'
-            case 1:
-                return 'purple'
-            case 2:
-                return 'yellow'
-    return 'unknown'
+# @njit
+def matchColor(ix):
+    match ix:
+        case 0: return 'green'
+        case 1: return 'purple'
+        case 2: return 'yellow'
 
 
-@njit
+# @njit
 def detectColorNp(hsv_frame):
     height, width, channels = hsv_frame.shape
     colors = []
@@ -60,13 +60,14 @@ def detectColorNp(hsv_frame):
             elif (const.lower_yellow < px).all() and (const.upper_yellow > px).all():
                 colors.append(2)
     if len(colors) == 0:
-        return matchColor(np.array(colors))
+        return 'unknown'
     else:
         counts = np.bincount(np.array(colors))
-        return matchColor(counts)
+        return matchColor(np.argmax(counts))
 
 
 def main(file):
+    start = time.time()
     cap = cv2.VideoCapture(file)
     while cap.isOpened():
         ret, frame = cap.read()
@@ -75,11 +76,14 @@ def main(file):
         hsv_frame = cv2.cvtColor(frame[const.y1: const.y2, const.x1:const.x2], cv2.COLOR_BGR2HSV)
         keyboard(cap)
         cv2.rectangle(frame, (const.x1, const.y1), (const.x2, const.y2), (0, 0, 255), 2)
-        cv2.putText(frame, detectColorNp(hsv_frame), (const.x1 + 10, const.y1 + 80), 0, 0.6, (0, 0, 255), 2)
+        cv2.putText(frame, detectColor(hsv_frame), (const.x1 + 10, const.y1 + 80), 0, 0.6, (0, 0, 255), 2)
         cv2.imshow('{}'.format(file[5:-4]), frame)
         if cv2.waitKeyEx(1) == 27:
             break
+    finish = time.time()
+    return finish-start
 
 
-main("data/1975.mp4")
+time_spent = main("data/jaba.mp4")
+print(time_spent)
 
